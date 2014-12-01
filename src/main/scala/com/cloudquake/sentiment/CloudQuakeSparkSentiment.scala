@@ -3,8 +3,6 @@ package com.cloudquake.sentiment
 import java.io.{File, FilenameFilter}
 import java.nio.ByteBuffer
 import scala.util.Random
-
-import com.gravity.goose.{Configuration, Goose}
 import jline.ConsoleReader
 
 import org.apache.spark.mllib.classification.{NaiveBayes, NaiveBayesModel}
@@ -28,9 +26,9 @@ import com.amazonaws.services.kinesis.AmazonKinesisClient
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 
-import org.apache.log4j.PropertyConfigurator
 import org.json4s._
 import org.json4s.native.JsonMethods._
+import org.apache.log4j.PropertyConfigurator
 
 
 object CloudQuakeSparkSentiment extends App {
@@ -93,22 +91,6 @@ object CloudQuakeSparkSentiment extends App {
   /* Create Naive Bayes model */
   val naiveBayesAndDictionaries = createNaiveBayesModel(trainingDataDir)
 
-  /*
-  /* Most popular hashtags in the last 10 seconds */
-  val hashTags = unionStreams.flatMap(byteArray => new String(byteArray).
-     	 	    split(" ").filter(_.startsWith("#")))
-
-  val topHashCounts10 = hashTags.map((_, 1)).reduceByKeyAndWindow(_ + _, Seconds(10))
-     	              .map{case (topic, count) => (count, topic)}
-           	      .transform(_.sortByKey(false))
-
-  topHashCounts10.foreachRDD(rdd => {
-  val topList = rdd.take(3)
-  println("\nTop 3 topics in last 10 seconds (%s total):".format(rdd.count()))
-  topList.foreach{case (count, tag) => println("%s (%s tweets)".format(tag, count))}
-  })
-  */
-
   /* Count positive and negative tweets in the batch Interval */
   val sentiments = tweets.map(parse_content).map(predict_sentiment(naiveBayesAndDictionaries,_))
   val count_sentiments = sentiments.map((_, 1)).reduceByKeyAndWindow(_ + _,countInterval)
@@ -119,25 +101,6 @@ object CloudQuakeSparkSentiment extends App {
 				     
   ssc.start()
   ssc.awaitTermination()
-
-  /*
-  /* REPL loop to enter different urls */
-  console(naiveBayesAndDictionaries)
-  def console(naiveBayesAndDictionaries: NaiveBayesAndDictionaries) = {
-    println("Enter 'q' to quit")
-    val consoleReader = new ConsoleReader()
-    while ( {
-      consoleReader.readLine("url> ") match {
-        case s if s == "q" => false
-        case url: String =>
-	  println(url)
-          predict(naiveBayesAndDictionaries, url)
-          true
-        case _ => true
-      }
-    }) {} 
-   }
-   */
  
 
   def predict_sentiment(naiveBayesAndDictionaries: NaiveBayesAndDictionaries, url: String): String = {
