@@ -72,6 +72,15 @@ object CloudQuakeSparkSentiment extends App {
   val ssc = new StreamingContext(sparkConfig, batchInterval)
   val sc  = new SparkContext(sparkConfig)
 
+
+  /* Interact with Amazon S3 */
+  val hadoopConf=sc.hadoopConfiguration;
+  hadoopConf.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
+  val myAccessKey = sys.env("AWS_ACCESS_KEY_ID")
+  val mySecretKey = sys.env("AWS_SECRET_KEY")
+  hadoopConf.set("fs.s3.awsAccessKeyId",myAccessKey)
+  hadoopConf.set("fs.s3.awsSecretAccessKey",mySecretKey)
+
   /* Set checkpoint directory */
   ssc.checkpoint("/root/check/")
 
@@ -98,10 +107,23 @@ object CloudQuakeSparkSentiment extends App {
                                    .transform(_.sortByKey(false))
   /* Print out the counts */				   
   count_sentiments.print()
+
+  /* Save the the number of positive and negative tweets to S3 bucket*/
+  count_sentiments.foreachRDD(rdd_sta => {
+    if (rdd_sta.count > 0) {
+    rdd_sta.saveAsTextFile("s3n://cqs3bucket/sentiment/no_"+System.currentTimeMillis)
+    } 
+  })
 				     
   ssc.start()
   ssc.awaitTermination()
  
+
+
+  /**
+    *  Function to classify a tweet that has been parsed using json4s before
+    */
+
 
   def predict_sentiment(naiveBayesAndDictionaries: NaiveBayesAndDictionaries, url: String): String = {
  
@@ -118,10 +140,10 @@ object CloudQuakeSparkSentiment extends App {
 
   }
 
+
+
   /**
-   *
-   * @param directory
-   * @return
+   *  Creates a dictionary in terms of tf-idf values and trains the Naive Bayes classifier
    */
   def createNaiveBayesModel(directory: String) = {
     val inputFiles = new File(directory).list(new FilenameFilter {
@@ -134,7 +156,6 @@ object CloudQuakeSparkSentiment extends App {
 
     // put collection in Spark
     val termDocsRdd = sc.parallelize[TermDoc](termDocs.toSeq)
-
     val numDocs = termDocs.size
 
     // create dictionary term => id
