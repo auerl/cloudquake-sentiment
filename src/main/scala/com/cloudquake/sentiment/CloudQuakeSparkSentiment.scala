@@ -77,7 +77,7 @@ object CloudQuakeSparkSentiment extends App {
   val hadoopConf=sc.hadoopConfiguration;
   hadoopConf.set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
   val myAccessKey = sys.env("AWS_ACCESS_KEY_ID")
-  val mySecretKey = sys.env("AWS_SECRET_KEY")
+  val mySecretKey = sys.env("AWS_SECRET_ACCESS_KEY")
   hadoopConf.set("fs.s3.awsAccessKeyId",myAccessKey)
   hadoopConf.set("fs.s3.awsSecretAccessKey",mySecretKey)
 
